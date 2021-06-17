@@ -4,8 +4,8 @@ block_cipher = None
 
 
 a = Analysis(['NaverComment.py'],
-             pathex=['C:\\workspace\\naver_comment'],
-             binaries=[('chromedriver.exe', '.')],
+             pathex=['C:\\Users\\NHN\\naver_comment'],
+             binaries=[],
              datas=[],
              hiddenimports=[],
              hookspath=[],
