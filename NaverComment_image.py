@@ -7,14 +7,14 @@ urllib3==1.25.10
 requests==2.24.0
 beautifulsoup4==4.9.1
 """
-import sys, os
+import os, io
 import requests
 from selenium import webdriver
 from bs4 import BeautifulSoup as bs
-from urllib import parse
+import re
 import time
 from datetime import datetime
-import threading
+from PIL import Image
 import pytesseract
 
 
@@ -68,7 +68,7 @@ class NaverComment:
         """
         if self.comment_flag:
             return
-        first_article, dongho = self.get_first_article()
+        first_article, dongho = self.get_first_article(target_id)
         print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '게시글 ID {} 보다 최신 게시글 찾고 있습니다...'.format(target_id))
         if int(target_id) < int(first_article):
             if self.comment_flag:
@@ -77,18 +77,25 @@ class NaverComment:
             print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '완료', first_article)
             return True
     
-    def get_first_article(self):
+    def get_first_article(self, target_id = None):
         r = requests.get((self.url),
           cookies=(self.cookies))
         soup = bs(r.text, 'html.parser')
         article_list = soup.find('ul',{'class':'article-movie-sub'})
         li_tag = article_list.find_all('li')[0]
-        title_element = li_tag.find_all('div', {'class': 'tit'})[0]
+        title_element = li_tag.find_all('a', {'class': 'tit'})[0]
         first_article_href = title_element.get('href')
         pattern = '(articleid\\=)(\\d*?)(?=&)'
-        first_article = int(re.search(pattern, first_article_href).replace('articleid=',''))
-        image_url = li_tag.find_all('img')
-        ocr_result = pytesseract.image_to_string(image_url, lang='kor')
+        first_article = int(re.search(pattern, first_article_href).group().replace('articleid=',''))
+        if target_id:
+            if int(target_id) >= int(first_article):
+                return first_article, None
+        print("get thumbnail image")
+        image_url = li_tag.find_all('img', {'alt':'썸네일 이미지'})[0].get('src')
+        image_response = requests.get(image_url, cookies=(self.cookies))
+        image_object = Image.open(io.BytesIO(image_response.content))
+        pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+        ocr_result = pytesseract.image_to_string(image_object, lang='kor')
         try:
             dong = re.search('\\d*?(?=동)', ocr_result).group().zfill(4)
             ho = re.search('\\d*?(?=호)', ocr_result).group().zfill(4)
@@ -106,6 +113,7 @@ class NaverComment:
         :prarm msg: 댓글의 내용
         :return:
         """
+        self.enter_article(article_id)
         if self.comment_flag:
             return True
         self.comment_flag = True
@@ -143,6 +151,7 @@ if __name__ == '__main__':
     comment = NaverComment()
     time.sleep(3)
     first_article, _ = comment.get_first_article()
+
     print('현재 게시판의 최신 글의 ID는 {} 입니다. \n 게시글 ID {} 보다 최신 게시글을 찾습니다.'.format(first_article, first_article))
     input('시작 하시려면 엔터키를 입력해주세요....')
     while True:
