@@ -7,7 +7,7 @@ urllib3==1.25.10
 requests==2.24.0
 beautifulsoup4==4.9.1
 """
-import sys, os
+import sys, os, re
 import requests
 from selenium import webdriver
 from bs4 import BeautifulSoup as bs
@@ -29,7 +29,7 @@ class NaverComment:
         self.cafe_id = 30020276
         self.comment_flag = False
         print('Loading chrome..')
-        self.driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver.exe'))
+        self.driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver'))
         print('Complete..')
         login_url = 'https://nid.naver.com/nidlogin.login?mode=form'
         self.driver.get(login_url)
@@ -38,7 +38,8 @@ class NaverComment:
         print('입력하신 이름과 생일은 "{}" 입니다.'.format(self.msg))
         self.cookies = self.get_cookies_for_requests(self.driver.get_cookies())
         self.url = 'https://cafe.naver.com/ArticleList.nhn?'
-        self.url += 'search.clubid={}&search.menuid=2&search.boardtype=L'.format(self.cafe_id)
+        view_type = 'W'
+        self.url += 'search.clubid={}&search.menuid=2&search.boardtype={}'.format(self.cafe_id, view_type)
         print('Move to Naver cafe..')
         self.driver.get(self.url)
 
@@ -76,9 +77,13 @@ class NaverComment:
         r = requests.get((self.url),
           cookies=(self.cookies))
         soup = bs(r.text, 'html.parser')
-        tbodys = soup.find_all('tbody')
-        first_article = tbodys[1].find_all('div', {'class': 'inner_number'})[0].text
-        title = tbodys[1].find_all('div', {'class': 'inner_list'})[0].text.strip()
+        article_list = soup.find('ul',{'class':'article-movie-sub'})
+        li_tag = article_list.find_all('li')[0]
+        title_element = li_tag.find_all('a', {'class': 'tit'})[0]
+        first_article_href = title_element.get('href')
+        pattern = '(articleid\\=)(\\d*?)(?=&)'
+        first_article = int(re.search(pattern, first_article_href).group().replace('articleid=',''))
+        title = title_element.find_all('strong')[0].text
         try:
             dong = re.search('\\d*?(?=동)', title).group().zfill(4)
             ho = re.search('\\d*?(?=호)', title).group().zfill(4)
@@ -96,6 +101,7 @@ class NaverComment:
         :prarm msg: 댓글의 내용
         :return:
         """
+        self.enter_article(article_id)
         if self.comment_flag:
             return True
         self.comment_flag = True

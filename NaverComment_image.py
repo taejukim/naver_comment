@@ -28,14 +28,16 @@ class NaverComment:
         init 함수
         """
         self.cafe_id = 30020276
+        # self.cafe_id = 30631179
         self.comment_flag = False
         print('Loading chrome..')
-        self.driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver.exe'))
+        self.driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver'))
         print('Complete..')
         login_url = 'https://nid.naver.com/nidlogin.login?mode=form'
         self.driver.get(login_url)
         input('네이버 로그인 후 엔터키를 입력해주세요....')
-        self.msg = input('이름과 생일을 입력해주세요(홍길동0321) : ')
+        # self.msg = input('이름과 생일을 입력해주세요(홍길동0321) : ')
+        self.msg = '이근주0813'
         print('입력하신 이름과 생일은 "{}" 입니다.'.format(self.msg))
         self.cookies = self.get_cookies_for_requests(self.driver.get_cookies())
         self.url = 'https://cafe.naver.com/ArticleList.nhn?'
@@ -71,11 +73,12 @@ class NaverComment:
         first_article, dongho = self.get_first_article(target_id)
         print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '게시글 ID {} 보다 최신 게시글 찾고 있습니다...'.format(target_id))
         if int(target_id) < int(first_article):
-            if self.comment_flag:
+            if dongho:
+                if self.comment_flag:
+                    return True
+                self.write_comment(first_article, dongho)
+                print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '완료', first_article)
                 return True
-            self.write_comment(first_article, dongho)
-            print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '완료', first_article)
-            return True
     
     def get_first_article(self, target_id = None):
         r = requests.get((self.url),
@@ -91,12 +94,12 @@ class NaverComment:
             if int(target_id) >= int(first_article):
                 return first_article, None
         print("get thumbnail image")
-        image_url = li_tag.find_all('img', {'alt':'썸네일 이미지'})[0].get('src')
-        image_response = requests.get(image_url, cookies=(self.cookies))
-        image_object = Image.open(io.BytesIO(image_response.content))
-        pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
-        ocr_result = pytesseract.image_to_string(image_object, lang='kor')
         try:
+            image_url = li_tag.find_all('img', {'alt':'썸네일 이미지'})[0].get('src')
+            image_response = requests.get(image_url, cookies=(self.cookies))
+            image_object = Image.open(io.BytesIO(image_response.content))
+            # pytesseract.pytesseract.tesseract_cmd = 'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
+            ocr_result = pytesseract.image_to_string(image_object, lang='kor')
             dong = re.search('\\d*?(?=동)', ocr_result).group().zfill(4)
             ho = re.search('\\d*?(?=호)', ocr_result).group().zfill(4)
         except:
@@ -126,6 +129,7 @@ class NaverComment:
          'cafeId':self.cafe_id, 
          'articleId':article_id, 
          'requestFrom':'A'}
+        time.sleep(2)
         comment = requests.post(comment_post,
           cookies=(self.cookies),
           data=comment_data)
