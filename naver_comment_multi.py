@@ -1,17 +1,18 @@
 from concurrent.futures import thread
 import os
 import requests
+import time
 from selenium import webdriver
 from bs4 import BeautifulSoup as bs
 import re
 from datetime import datetime
 from threading import Thread
 
+import info
 
 class NaverComment:
 	
-    def __init__(self, msg):
-        test = True
+    def __init__(self, id, password, msg, test=False):
         if test:
             self.cafe_id = 30631179 # test cafe        
             menu_id = 1
@@ -21,18 +22,17 @@ class NaverComment:
         self.msg = msg
         view_type = 'W'
 
-        print('Loading chrome..')
+        print('브라우저 로딩...')
         self.driver = webdriver.Chrome(os.path.join(os.getcwd(), 'chromedriver'))
         
-        login_url = 'https://nid.naver.com/nidlogin.login?mode=form'
-        self.driver.get(login_url)
-        input('네이버 로그인 후 엔터키를 입력해주세요....')
+        if not self.login(id, password):
+            input('Login 후 엔터를 눌러주세요')
     
         self.cookies = self.get_cookies_for_requests(self.driver.get_cookies())
             
         self.url = 'https://cafe.naver.com/ArticleList.nhn?'
         self.url += 'search.clubid={}&search.menuid={}&search.boardtype={}'.format(self.cafe_id, menu_id, view_type)
-        print('Move to Naver cafe..')
+        print('네이버 카페로 이동...')
         self.driver.get(self.url)
         
     def get_cookies_for_requests(self, cookies):
@@ -43,6 +43,22 @@ class NaverComment:
             cookies_for_requests[key]=value
         return cookies_for_requests
 
+    def login(self, id, password):
+        login_url = 'https://nid.naver.com/nidlogin.login?mode=form'
+        self.driver.get(login_url)
+        time.sleep(1)
+        input_js = ' \
+        document.getElementById("id").value = "{}"; \
+        document.getElementById("pw").value = "{}"; \
+        '.format(id, password)
+        self.driver.execute_script(input_js)
+        time.sleep(1)
+        self.driver.find_element_by_id('log.login').click()
+        time.sleep(2)
+        if self.driver.find_element_by_id('query'):
+            return True
+        return False
+
     def search_target_article(self, target_id):
         first_article = self.get_first_article(target_id)
         print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '게시글 ID {} 보다 최신 게시글 찾고 있습니다...'.format(target_id))
@@ -50,10 +66,10 @@ class NaverComment:
             return first_article
 
     def enter_password(self):
-        print("get thumbnail image")
         image_url = self.soup.find_all('img', {'alt':'썸네일 이미지'})[0].get('src')
         self.driver.get(image_url)
-        password = input('password 입력 : ')
+        print(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f]'), '썸네일 이미지 추출 완료')
+        password = input(datetime.now().strftime('[%y-%m-%d %H:%M:%S.%f] Password 입력 : '))
         return password
     
     def get_first_article(self, target_id = None):
@@ -98,22 +114,30 @@ class NaverComment:
         
 if __name__ == '__main__':
 
-    '''
-    이근주0813 bluehaaf / skdltm1645@
-    송병근 
-    윤영미
-    변미라1017 sssrrrjjj / 
-    강나연0811 comtumi / 
-    '''
 
-    print('Start...')
-    
+    print('시작...')
+
+    is_test = input("Test 인가요? [y/n] ")
+    while True:
+        if is_test == 'y' or is_test == 'n':
+            break
+        is_test = input("다시 입력해주세요. Test 인가요? [y/n] ")
+    ids = info.info
+    if is_test:
+        ids = info.test_info
+
+
     instances = list()
-    instance_qty = int(input('네이버 ID 개수 : '))
-
-    for i in range(instance_qty):
-        msg = input('이름과 생일을 입력해주세요(홍길동0321) : ')
-        instances.append(NaverComment(msg))
+    for i in ids:
+        msg = i.get('msg')
+        id = i.get('id')
+        password = i.get('pass')
+        print(msg, id, password)
+        if is_test == 'y':
+            args = (id, password, msg, True)
+        else:
+            args = (id, password, msg)
+        instances.append(NaverComment(*args))
 
     first_article = instances[0].get_first_article()
 
